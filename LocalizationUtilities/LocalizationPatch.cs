@@ -19,15 +19,28 @@ internal static class LocalizationPatch
 		}
 	}
 
-	private static void AddOrUpdate(StringTable stringTable, LocalizationSet set)
-	{
-		string[] languages = stringTable.GetLanguagesArray();
-		foreach (LocalizationEntry entry in set.Entries)
-		{
-			StringTableEntry stringEntry = stringTable.GetOrAddEntryFromKey(entry.LocalizationID);
-			for (int i = 0; i < languages.Length; i++)
-			{
-				string language = languages[i];
+    private static void AddOrUpdate(StringTable stringTable, LocalizationSet set)
+    {
+        StringTable fallbackTable = Localization.s_FallbackStringTable;
+        bool fallbackExists = fallbackTable != stringTable; // current language is not English
+        string[] languages = stringTable.GetLanguagesArray();
+        foreach (LocalizationEntry entry in set.Entries)
+        {
+            StringTableEntry stringEntry = stringTable.GetOrAddEntryFromKey(entry.LocalizationID);
+
+            if (fallbackExists)
+            {
+                StringTableEntry fallbackEntry = fallbackTable.GetOrAddEntryFromKey(entry.LocalizationID);
+
+                if (set.DefaultToEnglish && entry.Map.TryGetValue("English", out string? text2))
+                {
+                    if (fallbackEntry.m_Languages.Count > 0) fallbackEntry.m_Languages[0] = text2; // 0 is always English in fallback table
+                }
+            }
+
+            for (int i = 0; i < languages.Length; i++)
+            {
+                string language = languages[i];
 
                 string pattern = @"\[(.*?)\]";
                 Match match = Regex.Match(language, pattern);
@@ -37,18 +50,14 @@ internal static class LocalizationPatch
                 }
 
                 if (entry.Map.TryGetValue(language, out string? text) && !string.IsNullOrWhiteSpace(text))
-				{
-					stringEntry.m_Languages[i] = text;
-				}                
-                else if (set.DefaultToEnglish && entry.Map.TryGetValue("English", out string? text2))
-				{
-					stringEntry.m_Languages[i] = text2;
-				}
-			}
-		}
-	}
+                {
+                    stringEntry.m_Languages[i] = text;
+                }
+            }
+        }
+    }
 
-	private static string[] GetLanguagesArray(this StringTable stringTable)
+    private static string[] GetLanguagesArray(this StringTable stringTable)
 	{
 		return stringTable.GetLanguages().ToArray().ToArray();
 	}
